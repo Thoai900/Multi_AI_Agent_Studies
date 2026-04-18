@@ -1,16 +1,17 @@
-/**
- * Placeholder AI service — swap this implementation for a real LLM call
- * (Gemini, OpenAI, Anthropic, etc.) without touching the controller.
- */
-async function getAnswer(question) {
-  // Simulate async processing delay
-  await new Promise((resolve) => setTimeout(resolve, 300));
+const { chat } = require("./geminiService");
 
-  return {
-    answer: `Đây là câu trả lời từ AI cho câu hỏi: "${question}"`,
-    model: "mock-agent-v1",
-    timestamp: new Date().toISOString(),
-  };
+const SYSTEM_PROMPT =
+  "Bạn là gia sư AI thông minh, thân thiện và kiên nhẫn. Hãy giải thích mọi khái niệm một cách rõ ràng, dễ hiểu, sử dụng ví dụ thực tế khi cần thiết. Trả lời ngắn gọn, súc tích. Sử dụng tiếng Việt trừ khi người dùng yêu cầu ngôn ngữ khác.";
+
+async function getAnswer(question, history = [], modelId = "gemini-2.5-flash") {
+  const { answer, modelUsed } = await chat({
+    question,
+    history,
+    modelId,
+    systemInstruction: SYSTEM_PROMPT,
+  });
+
+  return { answer, model: modelUsed, timestamp: new Date().toISOString() };
 }
 
 module.exports = { getAnswer };

@@ -1,10 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
-type HistoryMessage = {
-  role: "user" | "assistant";
-  content: string;
-};
+type HistoryMessage = { role: "user" | "assistant"; content: string };
 
 const ALLOWED_MODELS = {
   "gemini-2.5-pro":   "gemini-2.5-pro",
@@ -19,70 +16,26 @@ const FALLBACK_CHAIN: Record<string, string> = {
 const SYSTEM_PROMPT =
   "Bạn là gia sư AI thông minh, thân thiện và kiên nhẫn. Hãy giải thích mọi khái niệm một cách rõ ràng, dễ hiểu, sử dụng ví dụ thực tế khi cần thiết. Trả lời ngắn gọn, súc tích. Sử dụng tiếng Việt trừ khi người dùng yêu cầu ngôn ngữ khác.";
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function getClient(): GoogleGenerativeAI {
+function getClient() {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not configured.");
   return new GoogleGenerativeAI(key);
 }
 
-async function callGemini(
-  modelId: string,
-  history: HistoryMessage[],
-  question: string
-): Promise<string> {
-  const genAI = getClient();
-  const model = genAI.getGenerativeModel({ model: modelId, systemInstruction: SYSTEM_PROMPT });
-
-  const chatHistory = history.map((m) => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
-  }));
-
-  const chat = model.startChat({ history: chatHistory });
-  const result = await chat.sendMessage(question);
-  return result.response.text();
+function sse(payload: object): Uint8Array {
+  return new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
-async function callWithRetry(
-  modelId: string,
-  history: HistoryMessage[],
-  question: string,
-  maxRetries = 2
-): Promise<{ answer: string; modelUsed: string }> {
-  let currentModel = modelId;
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const answer = await callGemini(currentModel, history, question);
-      return { answer, modelUsed: currentModel };
-    } catch (err: unknown) {
-      lastError = err;
-      const status = (err as { status?: number })?.status;
-
-      if (status === 503) {
-        const fallback = FALLBACK_CHAIN[currentModel];
-        if (fallback) {
-          console.warn(`[retry] ${currentModel} → 503, switching to ${fallback}`);
-          currentModel = fallback;
-          continue;
-        }
-      }
-
-      if (status === 429 && attempt < maxRetries) {
-        const waitMs = (attempt + 1) * 3000;
-        console.warn(`[retry] 429 rate limit, waiting ${waitMs}ms...`);
-        await delay(waitMs);
-        continue;
-      }
-
-      throw err;
-    }
-  }
-
-  throw lastError;
+function errorMsg(err: unknown): string {
+  const status = (err as { status?: number })?.status;
+  const msg    = (err as Error)?.message ?? "";
+  if (msg.includes("GEMINI_API_KEY is not configured")) return "Server chưa cấu hình API key.";
+  if (status === 503) return "Model đang quá tải. Đang thử model khác…";
+  if (status === 429) return "Đã vượt giới hạn request. Vui lòng chờ vài giây.";
+  if (status === 401 || status === 403) return "API key không hợp lệ.";
+  return "Đã có lỗi xảy ra. Vui lòng thử lại.";
 }
 
 export async function POST(req: NextRequest) {
@@ -90,50 +43,74 @@ export async function POST(req: NextRequest) {
     const { question, history, model: modelId } = await req.json();
 
     if (!question?.trim()) {
-      return NextResponse.json({ error: "question là trường bắt buộc." }, { status: 400 });
+      return Response.json({ error: "question là trường bắt buộc." }, { status: 400 });
     }
 
-    const resolvedModel =
-      ALLOWED_MODELS[modelId as keyof typeof ALLOWED_MODELS] ?? "gemini-2.5-flash";
+    const q            = question.trim();
+    const hist         = (history as HistoryMessage[]) || [];
+    const startModel: string = ALLOWED_MODELS[modelId as keyof typeof ALLOWED_MODELS] ?? "gemini-2.5-flash";
 
-    const { answer, modelUsed } = await callWithRetry(
-      resolvedModel,
-      (history as HistoryMessage[]) || [],
-      question.trim()
-    );
+    const readable = new ReadableStream({
+      async start(controller) {
+        let currentModel: string = startModel;
 
-    return NextResponse.json({ answer, model: modelUsed });
-  } catch (error: unknown) {
-    console.error("[/api/ask]", error);
+        for (let attempt = 0; attempt <= 3; attempt++) {
+          try {
+            const genAI = getClient();
+            const model = genAI.getGenerativeModel({
+              model: currentModel,
+              systemInstruction: SYSTEM_PROMPT,
+            });
 
-    const status = (error as { status?: number })?.status;
-    const message = (error as Error)?.message ?? "";
+            const chatHistory = hist.map((m) => ({
+              role: m.role === "assistant" ? "model" : "user",
+              parts: [{ text: m.content }],
+            }));
 
-    if (message.includes("GEMINI_API_KEY is not configured")) {
-      return NextResponse.json(
-        { error: "Server chưa cấu hình API key. Vui lòng liên hệ quản trị viên." },
-        { status: 500 }
-      );
-    }
-    if (status === 503) {
-      return NextResponse.json(
-        { error: "Tất cả model đang quá tải. Vui lòng thử lại sau ít phút." },
-        { status: 503 }
-      );
-    }
-    if (status === 429) {
-      return NextResponse.json(
-        { error: "Đã vượt giới hạn request. Vui lòng chờ vài giây rồi thử lại." },
-        { status: 429 }
-      );
-    }
-    if (status === 401 || status === 403) {
-      return NextResponse.json(
-        { error: "API key không hợp lệ. Vui lòng kiểm tra cấu hình." },
-        { status: 401 }
-      );
-    }
+            const chat   = model.startChat({ history: chatHistory });
+            const result = await chat.sendMessageStream(q);
 
-    return NextResponse.json({ error: "Đã có lỗi xảy ra. Vui lòng thử lại." }, { status: 500 });
+            for await (const chunk of result.stream) {
+              const text = chunk.text();
+              if (text) controller.enqueue(sse({ text }));
+            }
+
+            controller.enqueue(sse({ done: true, model: currentModel }));
+            controller.close();
+            return;
+          } catch (err) {
+            const status = (err as { status?: number })?.status;
+
+            if (status === 503) {
+              const fallback = FALLBACK_CHAIN[currentModel];
+              if (fallback) { currentModel = fallback; continue; }
+            }
+            if (status === 429 && attempt < 2) {
+              await delay((attempt + 1) * 3000);
+              continue;
+            }
+
+            controller.enqueue(sse({ error: errorMsg(err) }));
+            controller.close();
+            return;
+          }
+        }
+
+        controller.enqueue(sse({ error: "Tất cả model đang quá tải. Vui lòng thử lại." }));
+        controller.close();
+      },
+    });
+
+    return new Response(readable, {
+      headers: {
+        "Content-Type":    "text/event-stream",
+        "Cache-Control":   "no-cache, no-transform",
+        "Connection":      "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    });
+  } catch (err) {
+    console.error("[/api/ask]", err);
+    return Response.json({ error: "Đã có lỗi xảy ra." }, { status: 500 });
   }
 }

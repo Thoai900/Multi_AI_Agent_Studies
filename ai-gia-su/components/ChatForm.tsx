@@ -71,6 +71,20 @@ export default function ChatForm() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Auto-fill from URL param (?prompt=...) when navigating from Prompt Library
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const promptParam = params.get("prompt");
+    if (!promptParam) return;
+    const decoded = decodeURIComponent(promptParam);
+    setInput(decoded);
+    window.history.replaceState({}, "", "/");
+    setTimeout(() => {
+      textareaRef.current?.focus();
+      autoResize();
+    }, 50);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const autoResize = () => {
     const el = textareaRef.current;
     if (!el) return;

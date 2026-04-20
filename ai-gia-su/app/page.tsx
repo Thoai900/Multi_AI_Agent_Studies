@@ -19,12 +19,20 @@ export default function Home() {
               <p className="text-xs text-gray-400">Powered by Gemini · Giải đáp 24/7</p>
             </div>
           </div>
-          <Link
-            href="/prompts"
-            className="flex-shrink-0 text-xs px-3.5 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all font-medium"
-          >
-            📚 Thư Viện
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/prompts"
+              className="flex-shrink-0 text-xs px-3.5 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all font-medium"
+            >
+              📚 Thư Viện
+            </Link>
+            <Link
+              href="/setup-packs"
+              className="flex-shrink-0 text-xs px-3.5 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all font-medium"
+            >
+              ⚙️ Setup Packs
+            </Link>
+          </div>
         </div>
       </header>
 

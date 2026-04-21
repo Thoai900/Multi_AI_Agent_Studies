@@ -11,11 +11,11 @@ type Message = {
   model?: string;
 };
 
-type ModelId = "gemini-2.5-pro" | "gemini-2.5-flash";
+type ModelId = "claude-3-haiku" | "claude-3.5-sonnet";
 
 const MODELS: { id: ModelId; label: string; badge: string }[] = [
-  { id: "gemini-2.5-flash", label: "2.5 Flash", badge: "Nhanh" },
-  { id: "gemini-2.5-pro",   label: "2.5 Pro",   badge: "Mạnh"  },
+  { id: "claude-3-haiku",    label: "Claude Haiku",  badge: "Nhanh" },
+  { id: "claude-3.5-sonnet", label: "Claude Sonnet", badge: "Mạnh"  },
 ];
 
 const SUGGESTIONS = [
@@ -32,7 +32,7 @@ export default function ChatForm({ initialMessage = "" }: { initialMessage?: str
   const [input, setInput]                 = useState("");
   const [messages, setMessages]           = useState<Message[]>([]);
   const [loading, setLoading]             = useState(false);
-  const [selectedModel, setSelectedModel] = useState<ModelId>("gemini-2.5-flash");
+  const [selectedModel, setSelectedModel] = useState<ModelId>("claude-3-haiku");
 
   const bottomRef   = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);

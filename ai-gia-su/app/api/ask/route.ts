@@ -1,43 +1,36 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest } from "next/server";
 
 type HistoryMessage = { role: "user" | "assistant"; content: string };
 
-const ALLOWED_MODELS = {
-  "gemini-2.5-pro":   "gemini-2.5-pro",
-  "gemini-2.5-flash": "gemini-2.5-flash",
-} as const;
-
-const FALLBACK_CHAIN: Record<string, string> = {
-  "gemini-2.5-pro":   "gemini-2.5-flash",
-  "gemini-2.5-flash": "gemini-2.0-flash",
+// ── Models available via OpenRouter ──────────────────────────────────────────
+const MODELS: Record<string, string> = {
+  "claude-3-haiku":    "anthropic/claude-3-haiku",
+  "claude-3.5-sonnet": "anthropic/claude-3-5-sonnet",
 };
+const DEFAULT_MODEL = "anthropic/claude-3-haiku";
 
 const SYSTEM_PROMPT =
   "Bạn là gia sư AI thông minh, thân thiện và kiên nhẫn. Hãy giải thích mọi khái niệm một cách rõ ràng, dễ hiểu, sử dụng ví dụ thực tế khi cần thiết. Trả lời ngắn gọn, súc tích. Sử dụng tiếng Việt trừ khi người dùng yêu cầu ngôn ngữ khác.";
 
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-function getClient() {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new Error("GEMINI_API_KEY is not configured.");
-  return new GoogleGenerativeAI(key);
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function getApiKey(): string {
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) throw new Error("OPENROUTER_API_KEY is not configured.");
+  return key;
 }
 
 function sse(payload: object): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
-function errorMsg(err: unknown): string {
-  const status = (err as { status?: number })?.status;
-  const msg    = (err as Error)?.message ?? "";
-  if (msg.includes("GEMINI_API_KEY is not configured")) return "Server chưa cấu hình API key.";
-  if (status === 503) return "Model đang quá tải. Đang thử model khác…";
-  if (status === 429) return "Đã vượt giới hạn request. Vui lòng chờ vài giây.";
-  if (status === 401 || status === 403) return "API key không hợp lệ.";
-  return "Đã có lỗi xảy ra. Vui lòng thử lại.";
+function userFacingError(status: number): string {
+  if (status === 429) return "Đã vượt giới hạn request. Vui lòng thử lại sau vài giây.";
+  if (status === 401 || status === 403) return "API key không hợp lệ hoặc hết hạn.";
+  if (status === 402) return "Tài khoản OpenRouter chưa có credit.";
+  return "Lỗi kết nối tới AI. Vui lòng thử lại.";
 }
 
+// ── Route handler ─────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
     const { question, history, model: modelId } = await req.json();
@@ -46,70 +39,95 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "question là trường bắt buộc." }, { status: 400 });
     }
 
-    const q            = question.trim();
-    const hist         = (history as HistoryMessage[]) || [];
-    const startModel: string = ALLOWED_MODELS[modelId as keyof typeof ALLOWED_MODELS] ?? "gemini-2.5-flash";
+    const apiKey = getApiKey();
+    const model  = MODELS[modelId as string] ?? DEFAULT_MODEL;
+    const q      = (question as string).trim();
+    const hist   = (history as HistoryMessage[]) ?? [];
 
+    // Build OpenAI-compatible message array
+    const messages = [
+      { role: "system",    content: SYSTEM_PROMPT },
+      ...hist.map(m => ({
+        role:    m.role === "assistant" ? "assistant" : "user",
+        content: m.content,
+      })),
+      { role: "user", content: q },
+    ];
+
+    // Call OpenRouter (OpenAI-compatible endpoint)
+    const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method:  "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "HTTP-Referer":  process.env.NEXT_PUBLIC_SITE_URL ?? "https://ai-gia-su.vercel.app",
+        "X-Title":       "AI Gia Sư",
+        "Content-Type":  "application/json",
+      },
+      body: JSON.stringify({ model, messages, stream: true }),
+    });
+
+    if (!upstream.ok) {
+      return Response.json({ error: userFacingError(upstream.status) }, { status: upstream.status });
+    }
+
+    // Translate OpenRouter SSE → our SSE format and stream to client
     const readable = new ReadableStream({
       async start(controller) {
-        let currentModel: string = startModel;
+        const reader  = upstream.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer    = "";
 
-        for (let attempt = 0; attempt <= 3; attempt++) {
-          try {
-            const genAI = getClient();
-            const model = genAI.getGenerativeModel({
-              model: currentModel,
-              systemInstruction: SYSTEM_PROMPT,
-            });
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-            const chatHistory = hist.map((m) => ({
-              role: m.role === "assistant" ? "model" : "user",
-              parts: [{ text: m.content }],
-            }));
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() ?? "";
 
-            const chat   = model.startChat({ history: chatHistory });
-            const result = await chat.sendMessageStream(q);
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith("data: ")) continue;
+              const raw = trimmed.slice(6).trim();
 
-            for await (const chunk of result.stream) {
-              const text = chunk.text();
-              if (text) controller.enqueue(sse({ text }));
+              if (raw === "[DONE]") {
+                controller.enqueue(sse({ done: true, model }));
+                controller.close();
+                return;
+              }
+
+              try {
+                const parsed = JSON.parse(raw);
+                const text   = parsed.choices?.[0]?.delta?.content;
+                if (text) controller.enqueue(sse({ text }));
+              } catch { /* skip malformed chunk */ }
             }
-
-            controller.enqueue(sse({ done: true, model: currentModel }));
-            controller.close();
-            return;
-          } catch (err) {
-            const status = (err as { status?: number })?.status;
-
-            if (status === 503) {
-              const fallback = FALLBACK_CHAIN[currentModel];
-              if (fallback) { currentModel = fallback; continue; }
-            }
-            if (status === 429 && attempt < 2) {
-              await delay((attempt + 1) * 3000);
-              continue;
-            }
-
-            controller.enqueue(sse({ error: errorMsg(err) }));
-            controller.close();
-            return;
           }
-        }
 
-        controller.enqueue(sse({ error: "Tất cả model đang quá tải. Vui lòng thử lại." }));
-        controller.close();
+          // Upstream closed without [DONE]
+          controller.enqueue(sse({ done: true, model }));
+          controller.close();
+        } catch {
+          controller.enqueue(sse({ error: "Lỗi kết nối. Vui lòng thử lại." }));
+          controller.close();
+        }
       },
     });
 
     return new Response(readable, {
       headers: {
-        "Content-Type":    "text/event-stream",
-        "Cache-Control":   "no-cache, no-transform",
-        "Connection":      "keep-alive",
+        "Content-Type":      "text/event-stream",
+        "Cache-Control":     "no-cache, no-transform",
+        "Connection":        "keep-alive",
         "X-Accel-Buffering": "no",
       },
     });
   } catch (err) {
+    const msg = (err as Error)?.message ?? "";
+    if (msg.includes("OPENROUTER_API_KEY")) {
+      return Response.json({ error: "Server chưa cấu hình API key." }, { status: 500 });
+    }
     console.error("[/api/ask]", err);
     return Response.json({ error: "Đã có lỗi xảy ra." }, { status: 500 });
   }

@@ -28,7 +28,7 @@ const SUGGESTIONS = [
 let _id = 0;
 const uid = () => String(++_id);
 
-export default function ChatForm() {
+export default function ChatForm({ initialMessage = "" }: { initialMessage?: string }) {
   const [input, setInput]                 = useState("");
   const [messages, setMessages]           = useState<Message[]>([]);
   const [loading, setLoading]             = useState(false);
@@ -37,6 +37,7 @@ export default function ChatForm() {
   const bottomRef   = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef    = useRef<AbortController | null>(null);
+  const didAutoSend = useRef(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -54,6 +55,15 @@ export default function ChatForm() {
       autoResize();
     }, 50);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-send the message passed from the landing page
+  useEffect(() => {
+    if (!initialMessage || didAutoSend.current) return;
+    didAutoSend.current = true;
+    // Small delay so the chat UI has mounted before sending
+    const t = setTimeout(() => sendMessage(initialMessage), 80);
+    return () => clearTimeout(t);
+  }, [initialMessage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const autoResize = () => {
     const el = textareaRef.current;

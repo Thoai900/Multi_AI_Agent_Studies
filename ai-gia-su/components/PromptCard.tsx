@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Copy, Check, ArrowRight, ChevronDown, Eye, X, Star, Zap } from "lucide-react";
-import type { Prompt } from "@/lib/types";
+import type { Prompt } from "@/lib/supabase";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 

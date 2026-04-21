@@ -5,10 +5,11 @@ import { usePathname } from "next/navigation";
 import { Sparkles } from "lucide-react";
 
 const navLinks = [
-  { href: "/prompts",     label: "Thư viện Prompt" },
-  { href: "/setup-packs", label: "Setup Packs" },
-  { href: "/scanner",     label: "Scanner" },
-  { href: "/study-space", label: "Study Space" },
+  { href: "/prompts",        label: "Thư viện Prompt" },
+  { href: "/prompt-builder", label: "🧱 Builder" },
+  { href: "/setup-packs",    label: "Setup Packs" },
+  { href: "/scanner",        label: "Scanner" },
+  { href: "/study-space",    label: "Study Space" },
 ];
 
 export default function Navbar() {

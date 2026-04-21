@@ -1,146 +1,268 @@
 "use client";
 
-import { useState } from 'react';
-import { usePromptStore } from '@/lib/store/promptBuilderStore';
-import { Sparkles, Wand2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useState } from "react";
+import { usePromptStore } from "@/lib/store/promptBuilderStore";
+import { Sparkles, Wand2, AlertCircle, CheckCircle2, X, Copy, Check } from "lucide-react";
 
 export const AIAssistant = () => {
   const blocks = usePromptStore(state => state.blocks);
-  const [isImproving, setIsImproving] = useState(false);
+
+  const [isImproving,    setIsImproving]    = useState(false);
+  const [isAnalyzing,    setIsAnalyzing]    = useState(false);
+  const [improvedPrompt, setImprovedPrompt] = useState<string | null>(null);
+  const [aiSuggestions,  setAiSuggestions]  = useState<string[]>([]);
+  const [copiedImproved, setCopiedImproved] = useState(false);
 
   const enabledBlocks = blocks.filter(b => b.enabled);
-  const hasRole = enabledBlocks.some(b => b.type === 'role');
-  const hasTask = enabledBlocks.some(b => b.type === 'task');
+  const hasRole = enabledBlocks.some(b => b.type === "role");
+  const hasTask = enabledBlocks.some(b => b.type === "task");
+  const hasOutput = enabledBlocks.some(b => b.type === "output");
 
+  // Static score (instant, no API)
   let score = 0;
-  if (enabledBlocks.length >= 2) score += 4;
-  if (enabledBlocks.length >= 4) score += 3;
-  if (enabledBlocks.length >= 6) score += 2;
-  if (enabledBlocks.some(b => b.type === 'examples')) score += 1;
+  if (enabledBlocks.length >= 1) score += 2;
+  if (enabledBlocks.length >= 3) score += 2;
+  if (enabledBlocks.length >= 5) score += 2;
+  if (hasRole)   score += 1;
+  if (hasTask)   score += 1;
+  if (hasOutput) score += 1;
+  if (enabledBlocks.some(b => b.type === "examples")) score += 1;
   if (enabledBlocks.length === 0) score = 0;
 
-  const handleImprovePrompt = () => {
+  const scoreColor =
+    score >= 8 ? "text-emerald-500" :
+    score >= 5 ? "text-amber-500"   : "text-red-500";
+
+  const barColor =
+    score >= 8 ? "bg-emerald-500" :
+    score >= 5 ? "bg-amber-500"   : "bg-red-500";
+
+  const handleImprove = async () => {
+    if (enabledBlocks.length === 0) return;
     setIsImproving(true);
-    setTimeout(() => {
-      alert("Tính năng gọi API OpenAI/Claude sẽ được tích hợp ở đây để cải thiện nội dung!");
-      setIsImproving(false);
-    }, 1500);
+    setAiSuggestions([]);
+    try {
+      const res  = await fetch("/api/prompt-builder", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ action: "improve", blocks }),
+      });
+      const data = await res.json();
+      if (data.result) setImprovedPrompt(data.result);
+    } catch { /* silent */ }
+    finally { setIsImproving(false); }
   };
 
-  const scoreColor = score >= 8
-    ? 'text-emerald-500 dark:text-emerald-400'
-    : score >= 5
-    ? 'text-amber-500 dark:text-amber-400'
-    : 'text-red-500 dark:text-red-400';
+  const handleAnalyze = async () => {
+    if (enabledBlocks.length === 0) return;
+    setIsAnalyzing(true);
+    try {
+      const res  = await fetch("/api/prompt-builder", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ action: "analyze", blocks }),
+      });
+      const data = await res.json();
+      if (Array.isArray(data.suggestions)) setAiSuggestions(data.suggestions);
+    } catch { /* silent */ }
+    finally { setIsAnalyzing(false); }
+  };
 
-  const barColor = score >= 8
-    ? 'bg-emerald-500'
-    : score >= 5
-    ? 'bg-amber-500'
-    : 'bg-red-500';
+  const handleCopyImproved = () => {
+    if (!improvedPrompt) return;
+    navigator.clipboard.writeText(improvedPrompt).then(() => {
+      setCopiedImproved(true);
+      setTimeout(() => setCopiedImproved(false), 2000);
+    });
+  };
 
   return (
-    <div className="w-80 bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 h-full flex flex-col z-10">
-      <div className="p-5 border-b border-zinc-100 dark:border-zinc-800 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/30 dark:to-purple-950/30">
-        <h2 className="font-display text-base font-bold text-violet-900 dark:text-violet-300 flex items-center gap-2">
-          <span>🤖</span> Trợ Lý AI
-        </h2>
-        <p className="text-xs text-violet-700/70 dark:text-violet-400/70 mt-1">Đồng hành giúp bạn tạo Prompt xịn xò</p>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-thin">
-        {/* Score */}
-        <div className="surface rounded-2xl p-4">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Điểm chất lượng</h3>
-            <span className={`text-lg font-bold ${scoreColor}`}>{score}/10</span>
-          </div>
-          <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-2">
-            <div
-              className={`h-2 rounded-full transition-all duration-500 ${barColor}`}
-              style={{ width: `${score * 10}%` }}
-            />
-          </div>
+    <>
+      <div className="w-72 bg-white border-l border-zinc-200 h-full flex flex-col z-10 flex-shrink-0">
+        {/* Header */}
+        <div className="p-5 border-b border-zinc-100 bg-gradient-to-br from-violet-50 to-purple-50">
+          <h2 className="text-sm font-bold text-violet-900 flex items-center gap-2">
+            <span>🤖</span> Trợ Lý AI
+          </h2>
+          <p className="text-xs text-violet-600/70 mt-0.5">Đồng hành giúp bạn tạo Prompt xịn xò</p>
         </div>
 
-        {/* Suggestions */}
-        <div>
-          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-3 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-violet-500" /> Phân tích tự động
-          </h3>
-          <div className="space-y-3">
-            {blocks.length === 0 && (
-              <div className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-500 dark:text-zinc-400 italic">
-                Hãy kéo thả một vài khối nội dung để mình phân tích giúp bạn nhé.
-              </div>
-            )}
-
-            {blocks.length > 0 && !hasRole && (
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900 rounded-xl flex items-start gap-2">
-                <span className="text-amber-500 mt-0.5">⚠️</span>
-                <p className="text-xs text-amber-800 dark:text-amber-300">
-                  <b>Khuyên dùng:</b> Bạn nên thêm <b>Vai Trò</b> để AI xác định chuyên môn tốt hơn.
-                </p>
-              </div>
-            )}
-
-            {blocks.length > 0 && !hasTask && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900 rounded-xl flex items-start gap-2">
-                <span className="text-red-500 mt-0.5">⚠️</span>
-                <p className="text-xs text-red-800 dark:text-red-300">
-                  <b>Quan trọng:</b> Thiếu <b>Nhiệm Vụ</b> cụ thể! AI sẽ không biết làm gì.
-                </p>
-              </div>
-            )}
-
-            {hasRole && hasTask && score >= 7 && (
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900 rounded-xl flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                <p className="text-xs text-emerald-800 dark:text-emerald-300">
-                  Cấu trúc cơ bản rất tốt! Hãy thêm chi tiết bên trong để tăng chất lượng nhé.
-                </p>
-              </div>
-            )}
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {/* Score */}
+          <div className="bg-zinc-50 border border-zinc-100 rounded-2xl p-4">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-sm font-semibold text-zinc-700">Điểm chất lượng</h3>
+              <span className={`text-lg font-bold ${scoreColor}`}>{score}/10</span>
+            </div>
+            <div className="w-full bg-zinc-200 rounded-full h-2">
+              <div
+                className={`h-2 rounded-full transition-all duration-500 ${barColor}`}
+                style={{ width: `${score * 10}%` }}
+              />
+            </div>
+            <p className="text-xs text-zinc-400 mt-2">
+              {score === 0 ? "Chưa có block nào." :
+               score < 5  ? "Cần thêm nhiều block hơn." :
+               score < 8  ? "Khá tốt, có thể cải thiện thêm." :
+               "Cấu trúc rất tốt!"}
+            </p>
           </div>
-        </div>
 
-        {/* Magic tools */}
-        <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
-          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-3 flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-purple-500" /> Công cụ ma thuật
-          </h3>
-          <div className="space-y-2">
+          {/* Static analysis */}
+          <div>
+            <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5" /> Phân tích tức thời
+            </h3>
+            <div className="space-y-2">
+              {blocks.length === 0 && (
+                <p className="text-xs text-zinc-400 italic p-3 bg-zinc-50 rounded-xl border border-zinc-100">
+                  Kéo block vào canvas để mình phân tích nhé.
+                </p>
+              )}
+              {blocks.length > 0 && !hasRole && (
+                <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-2">
+                  <span className="mt-0.5 text-sm">⚠️</span>
+                  <p className="text-xs text-amber-800">
+                    <b>Nên có:</b> Block <b>Vai Trò</b> giúp AI hiểu chuyên môn cần thiết.
+                  </p>
+                </div>
+              )}
+              {blocks.length > 0 && !hasTask && (
+                <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2">
+                  <span className="mt-0.5 text-sm">🚨</span>
+                  <p className="text-xs text-red-800">
+                    <b>Thiếu quan trọng:</b> Block <b>Nhiệm Vụ</b> là bắt buộc — AI không biết làm gì nếu thiếu.
+                  </p>
+                </div>
+              )}
+              {blocks.length > 0 && !hasOutput && (
+                <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-2">
+                  <span className="mt-0.5 text-sm">💡</span>
+                  <p className="text-xs text-blue-800">
+                    Thêm <b>Đầu Ra</b> để chỉ định cách AI trình bày kết quả.
+                  </p>
+                </div>
+              )}
+              {hasRole && hasTask && score >= 7 && (
+                <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-emerald-800">
+                    Cấu trúc cơ bản rất tốt! Thêm nội dung chi tiết để tăng điểm.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* AI suggestions from analyze */}
+          {aiSuggestions.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-violet-500" /> Gợi ý từ AI
+              </h3>
+              <div className="space-y-2">
+                {aiSuggestions.map((s, i) => (
+                  <div key={i} className="p-3 bg-violet-50 border border-violet-100 rounded-xl">
+                    <p className="text-xs text-violet-900 leading-relaxed">{s}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="border-t border-zinc-100 pt-4 space-y-2">
+            <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <Wand2 className="w-3.5 h-3.5" /> Công cụ AI
+            </h3>
+
             <button
-              onClick={handleImprovePrompt}
+              onClick={handleImprove}
               disabled={isImproving || enabledBlocks.length === 0}
               className={`w-full py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-all ${
                 enabledBlocks.length === 0
-                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-violet-600 to-purple-500 hover:opacity-90 text-white shadow-sm shadow-violet-200 dark:shadow-violet-900/30'
+                  ? "bg-zinc-100 text-zinc-400 cursor-not-allowed"
+                  : "bg-gradient-to-r from-violet-600 to-purple-500 hover:opacity-90 text-white shadow-sm"
               }`}
             >
               {isImproving ? (
-                <span className="animate-pulse">Đang tinh chỉnh...</span>
+                <span className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  Đang nâng cấp...
+                </span>
               ) : (
-                <>
-                  <Wand2 className="w-4 h-4" />
-                  Nâng cấp văn phong (AI)
-                </>
+                <><Wand2 className="w-4 h-4" /> Nâng cấp văn phong</>
               )}
             </button>
+
             <button
-              disabled={enabledBlocks.length === 0}
+              onClick={handleAnalyze}
+              disabled={isAnalyzing || enabledBlocks.length === 0}
               className={`w-full py-2.5 px-4 rounded-xl border flex items-center justify-center gap-2 text-sm font-medium transition-colors ${
                 enabledBlocks.length === 0
-                  ? 'border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600 cursor-not-allowed'
-                  : 'border-violet-200 dark:border-violet-800 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30'
+                  ? "border-zinc-200 text-zinc-400 cursor-not-allowed"
+                  : "border-violet-200 text-violet-600 hover:bg-violet-50"
               }`}
             >
-              Tự động hoàn thiện (Auto Complete)
+              {isAnalyzing ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 border-2 border-violet-300 border-t-violet-600 rounded-full animate-spin" />
+                  Đang phân tích...
+                </span>
+              ) : (
+                <><Sparkles className="w-4 h-4" /> Phân tích AI chi tiết</>
+              )}
             </button>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Improved prompt modal */}
+      {improvedPrompt && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between p-5 border-b border-zinc-100">
+              <div>
+                <h3 className="font-semibold text-zinc-900">✨ Prompt đã được nâng cấp</h3>
+                <p className="text-xs text-zinc-400 mt-0.5">Bản do AI viết lại — chuyên nghiệp hơn</p>
+              </div>
+              <button
+                onClick={() => setImprovedPrompt(null)}
+                className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              <pre className="text-sm text-zinc-700 whitespace-pre-wrap font-mono leading-relaxed bg-zinc-50 rounded-xl p-4 border border-zinc-100">
+                {improvedPrompt}
+              </pre>
+            </div>
+
+            <div className="p-5 border-t border-zinc-100 flex gap-3">
+              <button
+                onClick={handleCopyImproved}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  copiedImproved
+                    ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                    : "bg-violet-600 hover:bg-violet-700 text-white"
+                }`}
+              >
+                {copiedImproved
+                  ? <><Check className="w-4 h-4" /> Đã copy!</>
+                  : <><Copy className="w-4 h-4" /> Copy bản nâng cấp</>}
+              </button>
+              <button
+                onClick={() => setImprovedPrompt(null)}
+                className="px-4 py-2.5 rounded-xl border border-zinc-200 text-sm text-zinc-500 hover:bg-zinc-50 transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };

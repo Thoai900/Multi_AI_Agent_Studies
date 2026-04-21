@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
-import type { Prompt } from "@/lib/supabase";
+import type { Prompt } from "@/lib/types";
 import { CATEGORIES } from "@/lib/supabase";
 import SubmitPromptModal from "@/components/SubmitPromptModal";
 import Navbar from "@/components/Navbar";

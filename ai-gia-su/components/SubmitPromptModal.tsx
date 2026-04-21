@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, Loader2 } from "lucide-react";
-import type { Prompt } from "@/lib/supabase";
+import type { Prompt } from "@/lib/types";
 import { CATEGORIES } from "@/lib/supabase";
 
 type Props = {

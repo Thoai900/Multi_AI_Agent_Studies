@@ -1,27 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
+import type { Prompt, Category } from "./types";
+import { CATEGORIES } from "./types";
 
-export type Prompt = {
-  id: string;
-  title: string;
-  description: string;
-  template: string;
-  category: string;
-  author_name: string;
-  upvotes: number;
-  status: "pending" | "approved";
-  created_at: string;
-};
-
-export const CATEGORIES = [
-  "Toán học",
-  "Văn học",
-  "Lập trình",
-  "Ngoại ngữ",
-  "Khoa học",
-  "Khác",
-] as const;
-
-export type Category = (typeof CATEGORIES)[number];
+export { CATEGORIES };
+export type { Prompt, Category };
 
 export function getSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

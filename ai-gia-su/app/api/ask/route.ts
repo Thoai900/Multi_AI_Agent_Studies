@@ -125,10 +125,17 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const msg = (err as Error)?.message ?? "";
+    console.error("[/api/ask] Lỗi:", msg);
+
     if (msg.includes("OPENROUTER_API_KEY")) {
-      return Response.json({ error: "Server chưa cấu hình API key." }, { status: 500 });
+      return Response.json(
+        { error: "Server chưa cấu hình OPENROUTER_API_KEY. Thêm vào Vercel Dashboard → Environment Variables rồi redeploy." },
+        { status: 500 },
+      );
     }
-    console.error("[/api/ask]", err);
-    return Response.json({ error: "Đã có lỗi xảy ra." }, { status: 500 });
+    return Response.json(
+      { error: `Lỗi server: ${msg || "không xác định"}` },
+      { status: 500 },
+    );
   }
 }

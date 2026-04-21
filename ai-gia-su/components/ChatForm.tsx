@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { Sparkles, Send, Loader2, User } from "lucide-react";
 
 type Message = {
   id: string;
@@ -18,60 +19,29 @@ const MODELS: { id: ModelId; label: string; badge: string }[] = [
 ];
 
 const SUGGESTIONS = [
-  "Giải thích định lý Pythagoras",
-  "Học Calculus bắt đầu từ đâu?",
-  "Xác suất cổ điển là gì?",
-  "Cách giải phương trình bậc 2",
+  { icon: "📐", text: "Giải thích định lý Pythagoras" },
+  { icon: "∫",  text: "Học Calculus bắt đầu từ đâu?" },
+  { icon: "🎲", text: "Xác suất cổ điển là gì?" },
+  { icon: "📊", text: "Cách giải phương trình bậc 2" },
 ];
 
 let _id = 0;
 const uid = () => String(++_id);
 
-// ── Icons ──────────────────────────────────────────────────────────────────────
-const BotIcon = () => (
-  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-  </svg>
-);
-
-const UserIcon = () => (
-  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-  </svg>
-);
-
-const SendIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-  </svg>
-);
-
-const SpinIcon = () => (
-  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-  </svg>
-);
-
-// ── Main component ─────────────────────────────────────────────────────────────
 export default function ChatForm() {
-  const [input, setInput]               = useState("");
-  const [messages, setMessages]         = useState<Message[]>([]);
-  const [loading, setLoading]           = useState(false);
+  const [input, setInput]                 = useState("");
+  const [messages, setMessages]           = useState<Message[]>([]);
+  const [loading, setLoading]             = useState(false);
   const [selectedModel, setSelectedModel] = useState<ModelId>("gemini-2.5-flash");
 
   const bottomRef   = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef    = useRef<AbortController | null>(null);
 
-  // Auto-scroll when messages update
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Auto-fill from URL param (?prompt=...) when navigating from Prompt Library
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const promptParam = params.get("prompt");
@@ -125,7 +95,6 @@ export default function ChatForm() {
         throw new Error(errData.error ?? "Lỗi kết nối tới server.");
       }
 
-      // Insert streaming placeholder
       setMessages((prev) => [
         ...prev,
         { id: assistantId, role: "assistant", content: "", streaming: true },
@@ -188,7 +157,6 @@ export default function ChatForm() {
         return [...prev, { id: assistantId, role: "assistant", content: msg }];
       });
     } finally {
-      // Ensure streaming flag is cleared even on unexpected exit
       setMessages((prev) =>
         prev.map((m) => (m.id === assistantId ? { ...m, streaming: false } : m))
       );
@@ -205,20 +173,19 @@ export default function ChatForm() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* ── Model selector ──────────────────────────────────────────────── */}
-      <div className="flex-shrink-0 bg-white border-b border-gray-100 px-4 py-2 flex items-center gap-2">
-        <span className="text-xs text-gray-400 mr-1">Model</span>
+      {/* Model selector */}
+      <div className="flex-shrink-0 border-b border-zinc-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-sm px-4 py-2.5 flex items-center gap-2">
+        <span className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mr-1">Model</span>
         {MODELS.map((m) => (
           <button
             key={m.id}
             type="button"
             onClick={() => setSelectedModel(m.id)}
             disabled={loading}
-            className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all duration-150
-              disabled:opacity-50 disabled:cursor-not-allowed
+            className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed
               ${selectedModel === m.id
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-gradient-to-r from-violet-600 to-purple-500 text-white shadow-sm shadow-violet-200 dark:shadow-violet-900"
+                : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
               }`}
           >
             {m.label} · {m.badge}
@@ -226,24 +193,24 @@ export default function ChatForm() {
         ))}
       </div>
 
-      {/* ── Messages ────────────────────────────────────────────────────── */}
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         {messages.length === 0 ? (
-          /* Empty state */
-          <div className="h-full flex flex-col items-center justify-center px-4 py-12 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center mb-4 shadow-lg shadow-indigo-200">
-              <BotIcon />
+          <div className="h-full flex flex-col items-center justify-center px-4 py-12 text-center animate-fade-in">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-purple-500 flex items-center justify-center mb-5 shadow-lg shadow-violet-200 dark:shadow-violet-900/40">
+              <Sparkles className="w-7 h-7 text-white" />
             </div>
-            <h2 className="text-xl font-semibold text-gray-800 mb-1">Hỏi bất cứ điều gì</h2>
-            <p className="text-sm text-gray-400 mb-8">AI gia sư sẵn sàng giải đáp 24/7</p>
-            <div className="grid grid-cols-2 gap-2 w-full max-w-md">
+            <h2 className="font-display text-2xl font-bold gradient-text mb-2">Xin chào! 👋</h2>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-8">AI gia sư sẵn sàng giải đáp mọi thắc mắc 24/7</p>
+            <div className="grid grid-cols-2 gap-2.5 w-full max-w-md">
               {SUGGESTIONS.map((s) => (
                 <button
-                  key={s}
-                  onClick={() => sendMessage(s)}
-                  className="text-left text-sm text-gray-600 bg-gray-50 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 border border-gray-200 rounded-xl px-4 py-3 transition-all duration-150"
+                  key={s.text}
+                  onClick={() => sendMessage(s.text)}
+                  className="text-left text-sm text-zinc-600 dark:text-zinc-300 surface rounded-2xl px-4 py-3 hover:border-violet-300 dark:hover:border-violet-700 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-all duration-150 card-hover"
                 >
-                  {s}
+                  <span className="mr-1.5">{s.icon}</span>
+                  {s.text}
                 </button>
               ))}
             </div>
@@ -253,12 +220,12 @@ export default function ChatForm() {
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex gap-3 animate-slide-up ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 {/* Bot avatar */}
                 {msg.role === "assistant" && (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center mt-0.5 shadow-sm">
-                    <BotIcon />
+                  <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-violet-600 to-purple-500 flex items-center justify-center mt-0.5 shadow-sm">
+                    <Sparkles className="w-3.5 h-3.5 text-white" />
                   </div>
                 )}
 
@@ -267,8 +234,8 @@ export default function ChatForm() {
                   <div
                     className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words
                       ${msg.role === "user"
-                        ? "bg-indigo-600 text-white rounded-tr-sm"
-                        : "bg-gray-100 text-gray-800 rounded-tl-sm"
+                        ? "bg-gradient-to-br from-violet-600 to-purple-500 text-white rounded-tr-sm shadow-sm shadow-violet-200 dark:shadow-violet-900/30"
+                        : "bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-tl-sm shadow-sm"
                       }`}
                   >
                     {msg.content || (msg.streaming && (
@@ -276,29 +243,27 @@ export default function ChatForm() {
                         {[0, 1, 2].map((i) => (
                           <span
                             key={i}
-                            className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce"
+                            className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce"
                             style={{ animationDelay: `${i * 0.15}s` }}
                           />
                         ))}
                       </span>
                     ))}
-
-                    {/* Blinking cursor while streaming */}
                     {msg.streaming && msg.content && (
-                      <span className="inline-block w-[2px] h-[1em] bg-gray-500 ml-0.5 align-text-bottom animate-cursor" />
+                      <span className="inline-block w-[2px] h-[1em] bg-zinc-400 ml-0.5 align-text-bottom animate-cursor" />
                     )}
                   </div>
 
                   {/* Model badge */}
                   {msg.role === "assistant" && !msg.streaming && msg.model && (
-                    <p className="text-[10px] text-gray-300 px-1">{msg.model}</p>
+                    <p className="text-[10px] text-zinc-400 dark:text-zinc-600 px-1">{msg.model}</p>
                   )}
                 </div>
 
                 {/* User avatar */}
                 {msg.role === "user" && (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center mt-0.5">
-                    <UserIcon />
+                  <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center mt-0.5">
+                    <User className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                   </div>
                 )}
               </div>
@@ -308,12 +273,10 @@ export default function ChatForm() {
         )}
       </div>
 
-      {/* ── Input ───────────────────────────────────────────────────────── */}
-      <div className="flex-shrink-0 bg-white border-t border-gray-100 px-4 py-4">
+      {/* Input area */}
+      <div className="flex-shrink-0 border-t border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm px-4 py-4">
         <div className="max-w-3xl mx-auto">
-          <div className="flex gap-3 items-end bg-gray-50 rounded-2xl border border-gray-200
-            focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100
-            transition-all duration-200 px-4 py-3">
+          <div className="flex gap-3 items-end bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm focus-within:border-violet-400 dark:focus-within:border-violet-600 focus-within:ring-2 focus-within:ring-violet-500/15 transition-all duration-200 px-4 py-3">
             <textarea
               ref={textareaRef}
               value={input}
@@ -322,21 +285,18 @@ export default function ChatForm() {
               placeholder="Nhập câu hỏi… (Enter để gửi)"
               rows={1}
               disabled={loading}
-              className="flex-1 bg-transparent text-gray-800 placeholder-gray-400 text-sm
-                resize-none outline-none leading-relaxed disabled:opacity-50"
+              className="flex-1 bg-transparent text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-600 text-sm resize-none outline-none leading-relaxed disabled:opacity-50 font-sans"
               style={{ maxHeight: "160px" }}
             />
             <button
               onClick={() => sendMessage()}
               disabled={!input.trim() || loading}
-              className="flex-shrink-0 w-9 h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700
-                active:bg-indigo-800 disabled:bg-gray-200 text-white disabled:text-gray-400
-                flex items-center justify-center transition-all duration-150"
+              className="flex-shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-violet-600 to-purple-500 hover:opacity-90 active:opacity-80 disabled:opacity-30 text-white flex items-center justify-center transition-all duration-150 shadow-sm hover:shadow-md hover:shadow-violet-200 dark:hover:shadow-violet-900/40 disabled:shadow-none disabled:cursor-not-allowed"
             >
-              {loading ? <SpinIcon /> : <SendIcon />}
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </button>
           </div>
-          <p className="text-xs text-gray-400 text-center mt-2">Shift + Enter để xuống dòng</p>
+          <p className="text-xs text-zinc-400 dark:text-zinc-600 text-center mt-2">Shift + Enter để xuống dòng</p>
         </div>
       </div>
     </div>

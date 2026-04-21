@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { X, Loader2 } from "lucide-react";
 import type { Prompt } from "@/lib/supabase";
 import { CATEGORIES } from "@/lib/supabase";
 
@@ -48,69 +49,81 @@ export default function SubmitPromptModal({ onClose, onSubmitted }: Props) {
     }
   };
 
+  const labelClass = "text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 block";
+  const inputClass = "input-field";
+
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
-          <h2 className="font-semibold text-gray-900 text-sm">Đóng góp Prompt</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none w-6 h-6 flex items-center justify-center">×</button>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-slide-up">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 bg-white dark:bg-zinc-900 rounded-t-3xl z-10">
+          <div>
+            <h2 className="font-display font-bold text-zinc-900 dark:text-zinc-50 text-sm">Đóng góp Prompt</h2>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">Chia sẻ prompt hay với cộng đồng</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {error && (
-            <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{error}</p>
+            <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-xl px-3 py-2">{error}</p>
           )}
 
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1.5 block">Tiêu đề *</label>
+            <label className={labelClass}>Tiêu đề *</label>
             <input
               value={form.title}
               onChange={(e) => set("title", e.target.value)}
               placeholder="VD: Giải thích khái niệm toán học"
-              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+              className={inputClass}
             />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1.5 block">Danh mục *</label>
+            <label className={labelClass}>Danh mục *</label>
             <select
               value={form.category}
               onChange={(e) => set("category", e.target.value)}
-              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition bg-white"
+              className="input-field appearance-none cursor-pointer"
             >
               {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1.5 block">Mô tả ngắn</label>
+            <label className={labelClass}>Mô tả ngắn</label>
             <input
               value={form.description}
               onChange={(e) => set("description", e.target.value)}
               placeholder="Prompt này dùng để làm gì?"
-              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+              className={inputClass}
             />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1.5 block">Nội dung Prompt *</label>
+            <label className={labelClass}>Nội dung Prompt *</label>
             <textarea
               value={form.template}
               onChange={(e) => set("template", e.target.value)}
               placeholder="Bạn là gia sư chuyên về [môn học]. Hãy giải thích [khái niệm] theo từng bước..."
               rows={6}
-              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition resize-none font-mono"
+              className="input-field resize-none font-mono"
             />
-            <p className="text-[10px] text-gray-400 mt-1">Dùng [dấu ngoặc vuông] để đánh dấu chỗ người dùng điền vào.</p>
+            <p className="text-[10px] text-zinc-400 dark:text-zinc-600 mt-1">Dùng [dấu ngoặc vuông] để đánh dấu chỗ người dùng điền vào.</p>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1.5 block">Tên của bạn</label>
+            <label className={labelClass}>Tên của bạn</label>
             <input
               value={form.author_name}
               onChange={(e) => set("author_name", e.target.value)}
               placeholder="Ẩn danh"
-              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+              className={inputClass}
             />
           </div>
 
@@ -118,16 +131,21 @@ export default function SubmitPromptModal({ onClose, onSubmitted }: Props) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 text-sm py-2.5 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition"
+              className="btn-ghost flex-1 justify-center"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 text-sm py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 text-white font-medium transition"
+              className="btn-primary flex-1 justify-center"
             >
-              {loading ? "Đang gửi…" : "Đóng góp"}
+              {loading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Đang gửi…
+                </>
+              ) : "Đóng góp"}
             </button>
           </div>
         </form>

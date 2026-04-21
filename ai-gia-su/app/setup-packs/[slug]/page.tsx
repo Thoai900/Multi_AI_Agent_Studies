@@ -3,8 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
+import { Copy, Check, Download, ChevronDown, ArrowRight } from "lucide-react";
 import type { PackDetail, Platform, SetupStep, CheatItem } from "@/lib/setupPacks";
 import { PLATFORMS } from "@/lib/setupPacks";
+import Navbar from "@/components/Navbar";
 
 // ── System Prompt Box ─────────────────────────────────────────────────────────
 function SystemPromptBox({ prompt, slug }: { prompt: string; slug: string }) {
@@ -30,40 +32,43 @@ function SystemPromptBox({ prompt, slug }: { prompt: string; slug: string }) {
   };
 
   return (
-    <section id="prompt" className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <section id="prompt" className="surface rounded-2xl shadow-sm p-5">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-gray-900 text-sm">System Prompt</h3>
-        <span className="text-[11px] text-gray-400">
+        <h3 className="font-display font-semibold text-zinc-900 dark:text-zinc-50 text-sm">System Prompt</h3>
+        <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
           {wordCount} từ · ~{Math.round(prompt.length / 4).toLocaleString()} tokens
         </span>
       </div>
 
-      <div className={`bg-gray-50 rounded-xl p-3 mb-3 overflow-y-auto transition-all duration-200 ${expanded ? "" : "max-h-36"}`}>
-        <pre className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed font-mono">{prompt}</pre>
+      <div className={`bg-zinc-50 dark:bg-zinc-800/60 rounded-xl p-3 mb-3 overflow-y-auto transition-all duration-200 ${expanded ? "" : "max-h-36"}`}>
+        <pre className="text-xs text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed font-mono">{prompt}</pre>
       </div>
 
       <div className="flex gap-2 flex-wrap">
         <button
           onClick={handleCopy}
-          className={`text-xs px-4 py-2 rounded-xl font-medium transition-all
+          className={`flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl font-medium transition-all
             ${copied
-              ? "bg-green-100 text-green-700 border border-green-200"
-              : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-200"
+              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+              : "btn-primary"
             }`}
         >
-          {copied ? "✓ Đã copy — dán vào Project instructions" : "Copy System Prompt đầy đủ"}
+          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+          {copied ? "Đã copy — dán vào Project instructions" : "Copy System Prompt"}
         </button>
         <button
           onClick={() => setExpanded((e) => !e)}
-          className="text-xs px-3 py-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition-all"
+          className="flex items-center gap-1 text-xs px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
         >
-          {expanded ? "Thu gọn ↑" : "Mở rộng xem hết ↓"}
+          {expanded ? "Thu gọn" : "Xem đầy đủ"}
+          <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
         </button>
         <button
           onClick={handleDownload}
-          className="text-xs px-3 py-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition-all"
+          className="flex items-center gap-1 text-xs px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
         >
-          Tải .txt ↓
+          <Download className="w-3 h-3" />
+          Tải .txt
         </button>
       </div>
     </section>
@@ -83,21 +88,21 @@ function CheatSheet({ items }: { items: CheatItem[] }) {
 
   return (
     <section>
-      <h3 className="font-semibold text-gray-900 text-sm mb-3">Cheat sheet — câu lệnh nhanh</h3>
+      <h3 className="font-display font-semibold text-zinc-900 dark:text-zinc-50 text-sm mb-3">Cheat sheet — câu lệnh nhanh</h3>
       <div className="space-y-2">
         {items.map((item) => (
-          <div key={item.id} className="flex items-center gap-3 bg-white border border-gray-100 rounded-xl px-4 py-2.5">
-            <span className="text-xs text-gray-500 w-44 flex-shrink-0 leading-snug">{item.label}</span>
-            <code className="text-xs text-gray-700 font-mono flex-1 min-w-0 truncate">{item.command}</code>
+          <div key={item.id} className="flex items-center gap-3 surface rounded-xl px-4 py-2.5">
+            <span className="text-xs text-zinc-500 dark:text-zinc-400 w-44 flex-shrink-0 leading-snug">{item.label}</span>
+            <code className="text-xs text-zinc-700 dark:text-zinc-300 font-mono flex-1 min-w-0 truncate">{item.command}</code>
             <button
               onClick={() => handleCopy(item.id, item.command)}
               className={`text-[11px] px-2.5 py-1 rounded-lg border flex-shrink-0 transition-all
                 ${copiedId === item.id
-                  ? "bg-green-50 text-green-700 border-green-200"
-                  : "bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-300"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"
+                  : "bg-zinc-50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600"
                 }`}
             >
-              {copiedId === item.id ? "✓" : "Copy"}
+              {copiedId === item.id ? <Check className="w-3 h-3" /> : "Copy"}
             </button>
           </div>
         ))}
@@ -121,7 +126,7 @@ function Checklist({
   return (
     <div>
       {platformWarning && (
-        <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 mb-3 text-xs text-amber-800 leading-relaxed">
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3 mb-3 text-xs text-amber-800 dark:text-amber-400 leading-relaxed">
           {platformWarning}
         </div>
       )}
@@ -132,19 +137,22 @@ function Checklist({
             <div
               key={step.id}
               onClick={() => onToggle(step.step_order)}
-              className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors select-none"
+              className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors select-none"
             >
               <div className={`w-[18px] h-[18px] rounded-[4px] border flex-shrink-0 mt-0.5 flex items-center justify-center transition-all
-                ${done ? "bg-indigo-600 border-indigo-600" : "border-gray-300 bg-white"}`}
+                ${done
+                  ? "bg-gradient-to-br from-violet-600 to-purple-500 border-transparent"
+                  : "border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900"
+                }`}
               >
-                {done && <span className="text-white text-[10px] font-bold">✓</span>}
+                {done && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
               </div>
               <div>
-                <p className={`text-sm font-medium leading-snug ${done ? "line-through text-gray-400" : "text-gray-900"}`}>
+                <p className={`text-sm font-medium leading-snug ${done ? "line-through text-zinc-400 dark:text-zinc-600" : "text-zinc-900 dark:text-zinc-50"}`}>
                   {step.title}
                 </p>
                 {step.subtitle && (
-                  <p className={`text-xs mt-0.5 leading-relaxed ${done ? "text-gray-300" : "text-gray-500"}`}>
+                  <p className={`text-xs mt-0.5 leading-relaxed ${done ? "text-zinc-300 dark:text-zinc-700" : "text-zinc-500 dark:text-zinc-400"}`}>
                     {step.subtitle}
                   </p>
                 )}
@@ -169,7 +177,6 @@ export default function SetupPackPage() {
   const [platform,       setPlatform]       = useState<Platform>("claude");
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
-  // Fetch pack data
   useEffect(() => {
     fetch(`/api/setup-packs/${slug}`)
       .then((r) => r.json())
@@ -181,13 +188,11 @@ export default function SetupPackPage() {
       .finally(() => setLoading(false));
   }, [slug]);
 
-  // Restore platform + progress from localStorage
   useEffect(() => {
     const urlP = new URLSearchParams(window.location.search).get("p") as Platform | null;
     const saved = localStorage.getItem(`setup_${slug}_platform`) as Platform | null;
     const active = urlP ?? saved ?? "claude";
     setPlatform(active);
-
     const done = JSON.parse(localStorage.getItem(`setup_${slug}_${active}_done`) ?? "[]") as number[];
     setCompletedSteps(new Set(done));
   }, [slug]);
@@ -216,7 +221,6 @@ export default function SetupPackPage() {
     document.getElementById("prompt")?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Derived
   const currentSteps    = pack?.steps[platform] ?? [];
   const totalSteps      = currentSteps.length;
   const doneCount       = completedSteps.size;
@@ -224,76 +228,57 @@ export default function SetupPackPage() {
   const platformWarning = pack?.platform_warnings?.[platform];
   const platformLabel   = PLATFORMS.find((p) => p.id === platform)?.label ?? platform;
 
-  // ── Loading ──
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+        <Navbar />
+        <div className="flex items-center justify-center py-32">
+          <div className="w-6 h-6 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
+        </div>
       </div>
     );
   }
 
-  // ── Error ──
   if (error || !pack) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-500 mb-3">{error ?? "Không tìm thấy pack này."}</p>
-          <Link href="/setup-packs" className="text-indigo-600 text-sm hover:underline">
-            ← Xem tất cả packs
-          </Link>
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+        <Navbar />
+        <div className="flex items-center justify-center py-32">
+          <div className="text-center">
+            <p className="text-zinc-500 dark:text-zinc-400 mb-3">{error ?? "Không tìm thấy pack này."}</p>
+            <Link href="/setup-packs" className="text-violet-600 dark:text-violet-400 text-sm hover:underline">
+              ← Xem tất cả packs
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 px-4 py-3 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <Link href="/setup-packs" className="text-gray-400 hover:text-gray-600 text-sm flex-shrink-0 transition-colors">
-              ← Packs
-            </Link>
-            <span className="text-gray-200">|</span>
-            <span className="text-xs text-gray-500 truncate">
-              {pack.level_tag} · {pack.subject_tag}
-            </span>
-          </div>
-          <button
-            onClick={handleStart}
-            className="flex-shrink-0 text-xs px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-medium transition-colors"
-          >
-            Bắt đầu →
-          </button>
-        </div>
-      </header>
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+      <Navbar />
 
-      <main className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+      <main className="max-w-3xl mx-auto px-4 py-6 space-y-5 animate-fade-in">
         {/* Hero */}
         <section>
-          <p className="text-xs text-gray-400 mb-2">Setup pack · {pack.level_tag} · {pack.subject_tag}</p>
-          <h1 className="text-xl font-semibold text-gray-900 mb-2">{pack.title}</h1>
-          <p className="text-sm text-gray-500 leading-relaxed mb-4">{pack.subtitle}</p>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-2">
+            Setup pack · {pack.level_tag} · {pack.subject_tag}
+          </p>
+          <h1 className="font-display text-xl font-bold text-zinc-900 dark:text-zinc-50 mb-2">{pack.title}</h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed mb-4">{pack.subtitle}</p>
           <div className="flex flex-wrap gap-1.5 mb-5">
             {pack.chips.map((chip) => (
-              <span key={chip} className="text-[11px] px-2.5 py-1 bg-white border border-gray-200 rounded-full text-gray-500">
+              <span key={chip} className="text-[11px] px-2.5 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-full text-zinc-500 dark:text-zinc-400">
                 {chip}
               </span>
             ))}
           </div>
           <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={handleStart}
-              className="text-sm px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors shadow-sm shadow-indigo-200"
-            >
-              Bắt đầu setup theo bước
+            <button onClick={handleStart} className="btn-primary">
+              Bắt đầu setup theo bước <ArrowRight className="w-3.5 h-3.5" />
             </button>
-            <button
-              onClick={handleScrollToPrompt}
-              className="text-sm px-4 py-2.5 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl transition-colors"
-            >
+            <button onClick={handleScrollToPrompt} className="btn-ghost">
               Tôi chỉ cần system prompt
             </button>
           </div>
@@ -301,33 +286,34 @@ export default function SetupPackPage() {
 
         {/* Progress */}
         {totalSteps > 0 && (
-          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="flex justify-between items-center mb-1.5">
-              <span className="text-xs text-gray-500">Tiến độ của bạn (tự lưu)</span>
-              <span className="text-xs font-semibold text-gray-900">{doneCount} / {totalSteps} bước</span>
+          <section className="surface rounded-2xl shadow-sm p-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">Tiến độ của bạn (tự lưu)</span>
+              <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-50">{doneCount} / {totalSteps} bước</span>
             </div>
-            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1.5">
+            <div className="h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden mb-2">
               <div
-                className="h-full bg-indigo-600 rounded-full transition-all duration-300"
+                className="h-full bg-gradient-to-r from-violet-600 to-purple-500 rounded-full transition-all duration-500"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
-            <p className="text-[11px] text-gray-400">Thoát ra rồi quay lại là tiếp tục đúng chỗ đang dở.</p>
+            <p className="text-[11px] text-zinc-400 dark:text-zinc-600">Thoát ra rồi quay lại là tiếp tục đúng chỗ đang dở.</p>
           </section>
         )}
 
         {/* Platform selector */}
         <section>
-          <p className="text-xs text-gray-500 mb-2.5">Bạn đang dùng AI nào? (hướng dẫn sẽ đổi theo)</p>
-          <div className="flex gap-2 flex-wrap">
-            {PLATFORMS.map((p) => (
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2.5">Bạn đang dùng AI nào? (hướng dẫn sẽ đổi theo)</p>
+          <div className="flex rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden w-fit">
+            {PLATFORMS.map((p, i) => (
               <button
                 key={p.id}
                 onClick={() => handlePlatformChange(p.id)}
-                className={`text-xs px-4 py-2 rounded-xl border font-medium transition-all
+                className={`text-xs px-4 py-2 font-medium transition-all
+                  ${i > 0 ? "border-l border-zinc-200 dark:border-zinc-700" : ""}
                   ${platform === p.id
-                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:text-indigo-600"
+                    ? "bg-gradient-to-r from-violet-600 to-purple-500 text-white"
+                    : "bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
                   }`}
               >
                 {p.label}
@@ -337,8 +323,8 @@ export default function SetupPackPage() {
         </section>
 
         {/* Checklist */}
-        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="font-semibold text-gray-900 text-sm mb-3">Setup {platformLabel}</h3>
+        <section className="surface rounded-2xl shadow-sm p-5">
+          <h3 className="font-display font-semibold text-zinc-900 dark:text-zinc-50 text-sm mb-3">Setup {platformLabel}</h3>
           {currentSteps.length > 0 ? (
             <>
               <Checklist
@@ -349,13 +335,13 @@ export default function SetupPackPage() {
               />
               <button
                 onClick={handleStart}
-                className="mt-4 w-full text-xs py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium transition-colors"
+                className="mt-4 w-full text-xs py-2.5 rounded-xl bg-violet-50 dark:bg-violet-950/30 hover:bg-violet-100 dark:hover:bg-violet-950/50 text-violet-700 dark:text-violet-400 font-medium transition-colors border border-violet-100 dark:border-violet-900"
               >
                 Làm theo từng bước có hướng dẫn chi tiết →
               </button>
             </>
           ) : (
-            <p className="text-xs text-gray-400">Không có bước nào cho nền tảng này.</p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-600">Không có bước nào cho nền tảng này.</p>
           )}
         </section>
 

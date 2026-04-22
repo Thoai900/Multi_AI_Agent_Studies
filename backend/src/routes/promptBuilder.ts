@@ -1,5 +1,4 @@
 import { Router, Request, Response } from "express";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
 type Action = "analyze" | "improve" | "autocomplete";
 
@@ -9,10 +8,12 @@ interface RequestBody {
   blockType?: string;
 }
 
-function getClient() {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new Error("GEMINI_API_KEY chưa được cấu hình.");
-  return new GoogleGenerativeAI(key);
+const MODEL = "inclusionai/ling-2.6-flash:free";
+
+function getApiKey(): string {
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) throw new Error("OPENROUTER_API_KEY chưa được cấu hình.");
+  return key;
 }
 
 function buildPromptText(blocks: RequestBody["blocks"]) {
@@ -22,6 +23,32 @@ function buildPromptText(blocks: RequestBody["blocks"]) {
     .join("\n\n");
 }
 
+async function callOpenRouter(systemPrompt: string): Promise<string> {
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${getApiKey()}`,
+      "HTTP-Referer": process.env.SITE_URL ?? "https://ai-gia-su.vercel.app",
+      "X-Title": "AI Gia Sư",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [{ role: "user", content: systemPrompt }],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`OpenRouter ${res.status}: ${err}`);
+  }
+
+  const data = await res.json() as {
+    choices: { message: { content: string } }[];
+  };
+  return data.choices[0].message.content.trim();
+}
+
 const router = Router();
 
 router.post("/", async (req: Request, res: Response) => {
@@ -29,8 +56,6 @@ router.post("/", async (req: Request, res: Response) => {
     const body = req.body as RequestBody;
     const { action, blocks, blockType } = body;
 
-    const genAI      = getClient();
-    const model      = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const promptText = buildPromptText(blocks);
 
     let systemPrompt = "";
@@ -63,8 +88,7 @@ ${promptText || "(Chưa có nội dung nào)"}`;
       return;
     }
 
-    const result = await model.generateContent(systemPrompt);
-    const text   = result.response.text().trim();
+    const text = await callOpenRouter(systemPrompt);
 
     if (action === "improve") {
       res.json({ result: text });

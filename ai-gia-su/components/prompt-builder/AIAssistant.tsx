@@ -4,6 +4,8 @@ import { useState } from "react";
 import { usePromptStore } from "@/lib/store/promptBuilderStore";
 import { Sparkles, Wand2, AlertCircle, CheckCircle2, X, Copy, Check } from "lucide-react";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+
 export const AIAssistant = () => {
   const blocks = usePromptStore(state => state.blocks);
 
@@ -37,18 +39,48 @@ export const AIAssistant = () => {
     score >= 8 ? "bg-emerald-500" :
     score >= 5 ? "bg-amber-500"   : "bg-red-500";
 
+  // ── SSE streaming for improve ─────────────────────────────────────────────
   const handleImprove = async () => {
     if (enabledBlocks.length === 0) return;
     setIsImproving(true);
     setAiSuggestions([]);
+    setImprovedPrompt(""); // open modal immediately
+
     try {
-      const res  = await fetch("/api/prompt-builder", {
+      const res = await fetch(`${API_BASE}/api/prompt-builder`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ action: "improve", blocks }),
+        body:    JSON.stringify({ action: "improve", blocks, stream: true }),
       });
-      const data = await res.json();
-      if (data.result) setImprovedPrompt(data.result);
+
+      if (!res.ok || !res.body) {
+        // Fallback: try non-streaming
+        const data = await res.json().catch(() => ({}));
+        setImprovedPrompt((data as { result?: string }).result ?? null);
+        return;
+      }
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer    = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const payload = JSON.parse(line.slice(6));
+            if (payload.text) setImprovedPrompt(prev => (prev ?? "") + payload.text);
+            if (payload.done || payload.error) return;
+          } catch { /* skip malformed */ }
+        }
+      }
     } catch { /* silent */ }
     finally { setIsImproving(false); }
   };
@@ -57,7 +89,7 @@ export const AIAssistant = () => {
     if (enabledBlocks.length === 0) return;
     setIsAnalyzing(true);
     try {
-      const res  = await fetch("/api/prompt-builder", {
+      const res  = await fetch(`${API_BASE}/api/prompt-builder`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ action: "analyze", blocks }),
@@ -188,7 +220,7 @@ export const AIAssistant = () => {
               {isImproving ? (
                 <span className="flex items-center gap-2">
                   <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  Đang nâng cấp...
+                  Đang viết lại...
                 </span>
               ) : (
                 <><Wand2 className="w-4 h-4" /> Nâng cấp văn phong</>
@@ -217,17 +249,24 @@ export const AIAssistant = () => {
         </div>
       </div>
 
-      {/* Improved prompt modal */}
-      {improvedPrompt && (
+      {/* Improved prompt modal — opens as soon as streaming starts */}
+      {improvedPrompt !== null && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[80vh]">
             <div className="flex items-center justify-between p-5 border-b border-zinc-100">
               <div>
-                <h3 className="font-semibold text-zinc-900">✨ Prompt đã được nâng cấp</h3>
+                <h3 className="font-semibold text-zinc-900 flex items-center gap-2">
+                  ✨ Prompt đã được nâng cấp
+                  {isImproving && (
+                    <span className="text-xs font-normal text-violet-500 animate-pulse">
+                      Đang viết...
+                    </span>
+                  )}
+                </h3>
                 <p className="text-xs text-zinc-400 mt-0.5">Bản do AI viết lại — chuyên nghiệp hơn</p>
               </div>
               <button
-                onClick={() => setImprovedPrompt(null)}
+                onClick={() => { setImprovedPrompt(null); setIsImproving(false); }}
                 className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-100 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -235,17 +274,26 @@ export const AIAssistant = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-5">
-              <pre className="text-sm text-zinc-700 whitespace-pre-wrap font-mono leading-relaxed bg-zinc-50 rounded-xl p-4 border border-zinc-100">
-                {improvedPrompt}
+              <pre className="text-sm text-zinc-700 whitespace-pre-wrap font-mono leading-relaxed bg-zinc-50 rounded-xl p-4 border border-zinc-100 min-h-[80px]">
+                {improvedPrompt || (
+                  <span className="text-zinc-400 italic">Đang khởi tạo...</span>
+                )}
+                {/* Blinking cursor while streaming */}
+                {isImproving && (
+                  <span className="inline-block w-0.5 h-4 bg-violet-500 ml-0.5 animate-pulse align-middle" />
+                )}
               </pre>
             </div>
 
             <div className="p-5 border-t border-zinc-100 flex gap-3">
               <button
                 onClick={handleCopyImproved}
+                disabled={isImproving || !improvedPrompt}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   copiedImproved
                     ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                    : isImproving || !improvedPrompt
+                    ? "bg-zinc-100 text-zinc-400 cursor-not-allowed"
                     : "bg-violet-600 hover:bg-violet-700 text-white"
                 }`}
               >
@@ -254,7 +302,7 @@ export const AIAssistant = () => {
                   : <><Copy className="w-4 h-4" /> Copy bản nâng cấp</>}
               </button>
               <button
-                onClick={() => setImprovedPrompt(null)}
+                onClick={() => { setImprovedPrompt(null); setIsImproving(false); }}
                 className="px-4 py-2.5 rounded-xl border border-zinc-200 text-sm text-zinc-500 hover:bg-zinc-50 transition-colors"
               >
                 Đóng

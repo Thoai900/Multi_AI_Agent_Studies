@@ -7,6 +7,7 @@ interface RequestBody {
   action: Action;
   blocks: { type: string; content: string; enabled: boolean }[];
   blockType?: string;
+  stream?: boolean;
 }
 
 function getClient() {
@@ -22,13 +23,17 @@ function buildPromptText(blocks: RequestBody["blocks"]) {
     .join("\n\n");
 }
 
+function sse(payload: object): Uint8Array {
+  return new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body: RequestBody = await req.json();
-    const { action, blocks, blockType } = body;
+    const { action, blocks, blockType, stream: doStream } = body;
 
-    const genAI  = getClient();
-    const model  = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const genAI      = getClient();
+    const model      = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const promptText = buildPromptText(blocks);
 
     let systemPrompt = "";
@@ -46,10 +51,40 @@ ${promptText || "(Chưa có nội dung)"}`;
     }
 
     else if (action === "improve") {
-      systemPrompt = `Bạn là chuyên gia viết AI prompt. Hãy viết lại prompt dưới đây để chuyên nghiệp hơn, rõ ràng hơn và hiệu quả hơn. Giữ nguyên ý định gốc. Trả về plain text, giữ cấu trúc block nếu có.
+      systemPrompt = `Bạn là chuyên gia viết AI prompt. Hãy viết lại prompt dưới đây để chuyên nghiệp hơn, rõ ràng hơn và hiệu quả hơn. Giữ nguyên ý định gốc và giữ nguyên cú pháp {{tên_biến}} nếu có. Trả về plain text, giữ cấu trúc block nếu có.
 
 Prompt gốc:
 ${promptText}`;
+
+      // ── SSE streaming mode ──────────────────────────────────────────────────
+      if (doStream) {
+        const streamResult = await model.generateContentStream(systemPrompt);
+
+        const readable = new ReadableStream({
+          async start(controller) {
+            try {
+              for await (const chunk of streamResult.stream) {
+                const text = chunk.text();
+                if (text) controller.enqueue(sse({ text }));
+              }
+              controller.enqueue(sse({ done: true }));
+              controller.close();
+            } catch {
+              controller.enqueue(sse({ error: "Lỗi khi stream." }));
+              controller.close();
+            }
+          },
+        });
+
+        return new Response(readable, {
+          headers: {
+            "Content-Type":      "text/event-stream",
+            "Cache-Control":     "no-cache, no-transform",
+            "Connection":        "keep-alive",
+            "X-Accel-Buffering": "no",
+          },
+        });
+      }
     }
 
     else if (action === "autocomplete") {
@@ -73,7 +108,6 @@ ${promptText || "(Chưa có nội dung nào)"}`;
       return Response.json({ result: text });
     }
 
-    // Parse JSON for analyze / autocomplete
     const cleaned = text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
     return Response.json(JSON.parse(cleaned));
 

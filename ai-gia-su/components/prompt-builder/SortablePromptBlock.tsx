@@ -40,22 +40,22 @@ const blockMeta: Record<
     emoji: "🎯",
     badge: "bg-orange-100 text-orange-700 border-orange-200",
     placeholder:
-      "VD: Giải thích khái niệm giới hạn (limit) trong Giải tích theo cách đơn giản nhất cho người mới học.",
+      "VD: Giải thích khái niệm {{chủ_đề}} trong Giải tích theo cách đơn giản nhất cho người mới học.",
     templates: [
-      "Giải thích khái niệm [X] theo cách đơn giản nhất, dùng ví dụ từ cuộc sống hàng ngày.",
-      "Viết một đoạn mô tả sản phẩm hấp dẫn cho [tên sản phẩm], nhắm đến đối tượng [X], dưới 150 từ.",
-      "Lập kế hoạch học tập chi tiết cho 30 ngày để đạt mục tiêu [X], chia nhỏ thành từng ngày.",
+      "Giải thích khái niệm {{chủ_đề}} theo cách đơn giản nhất, dùng ví dụ từ cuộc sống hàng ngày.",
+      "Viết một đoạn mô tả sản phẩm hấp dẫn cho {{tên_sản_phẩm}}, nhắm đến đối tượng {{đối_tượng}}, dưới 150 từ.",
+      "Lập kế hoạch học tập chi tiết cho 30 ngày để đạt mục tiêu {{mục_tiêu}}, chia nhỏ thành từng ngày.",
     ],
   },
   input: {
     label: "Đầu Vào",
     emoji: "📥",
     badge: "bg-green-100 text-green-700 border-green-200",
-    placeholder: "VD: Bài toán hoặc văn bản người dùng cung cấp: [dán nội dung vào đây]",
+    placeholder: "VD: Bài toán hoặc văn bản người dùng cung cấp: {{nội_dung}}",
     templates: [
-      "Bài toán người dùng cung cấp: [dán nội dung vào đây]",
-      "Đoạn văn cần phân tích: [dán văn bản vào đây]",
-      "Thông tin sản phẩm: Tên: [X] | Giá: [Y] | Đặc điểm: [Z]",
+      "Bài toán người dùng cung cấp: {{nội_dung_bài_toán}}",
+      "Đoạn văn cần phân tích: {{nội_dung_đoạn_văn}}",
+      "Thông tin sản phẩm: Tên: {{tên}} | Giá: {{giá}} | Đặc điểm: {{đặc_điểm}}",
     ],
   },
   constraints: {
@@ -89,8 +89,8 @@ const blockMeta: Record<
     placeholder:
       "VD:\nInput: Giải thích đạo hàm\nOutput mong muốn: Đạo hàm là tốc độ thay đổi...",
     templates: [
-      "Input mẫu: [câu hỏi ví dụ]\nOutput mong muốn: [cách AI nên trả lời]",
-      "Ví dụ đúng: ...\nVí dụ sai (cần tránh): ...",
+      "Input mẫu: {{câu_hỏi_ví_dụ}}\nOutput mong muốn: {{câu_trả_lời_mẫu}}",
+      "Ví dụ đúng: {{ví_dụ_đúng}}\nVí dụ sai (cần tránh): {{ví_dụ_sai}}",
       "Format mẫu:\n1. Tiêu đề ngắn\n2. Giải thích 2-3 câu\n3. Ví dụ thực tế\n4. Kết luận",
     ],
   },

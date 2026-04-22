@@ -36,6 +36,7 @@ interface PromptStore {
   toggleBlock:         (id: string) => void;
   removeBlock:         (id: string) => void;
   setBlocks:           (blocks: PromptBlock[]) => void;
+  loadTemplate:        (blocks: Omit<PromptBlock, "id">[]) => void;
   clearAll:            () => void;
   getGeneratedPrompt:  () => string;
 }
@@ -65,6 +66,9 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
     set(s => ({ blocks: s.blocks.filter(b => b.id !== id) })),
 
   setBlocks: (blocks) => set({ blocks }),
+
+  loadTemplate: (templateBlocks) =>
+    set({ blocks: templateBlocks.map(b => ({ ...b, id: nanoid() })) }),
 
   clearAll: () => set({ blocks: [] }),
 

@@ -2,12 +2,103 @@
 
 import { useState } from "react";
 import { usePromptStore } from "@/lib/store/promptBuilderStore";
-import { Sparkles, Wand2, AlertCircle, CheckCircle2, X, Copy, Check } from "lucide-react";
+import { Sparkles, Wand2, X, Copy, Check, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
+// ── Score helpers ─────────────────────────────────────────────────────────────
+function calcScore(blocks: ReturnType<typeof usePromptStore.getState>["blocks"]) {
+  const enabled = blocks.filter(b => b.enabled);
+  let score = 0;
+  if (enabled.length >= 1) score += 2;
+  if (enabled.length >= 3) score += 2;
+  if (enabled.length >= 5) score += 2;
+  if (enabled.some(b => b.type === "role"))        score += 1;
+  if (enabled.some(b => b.type === "task"))        score += 1;
+  if (enabled.some(b => b.type === "output"))      score += 1;
+  if (enabled.some(b => b.type === "examples"))    score += 1;
+  if (enabled.length === 0) score = 0;
+  return score;
+}
+
+type CheckItem = {
+  label:   string;
+  ok:      boolean;
+  level:   "critical" | "important" | "tip";
+  message: string;
+};
+
+function buildChecklist(blocks: ReturnType<typeof usePromptStore.getState>["blocks"]): CheckItem[] {
+  const enabled = blocks.filter(b => b.enabled);
+  const has = (t: string) => enabled.some(b => b.type === t);
+  const hasContent = (t: string) =>
+    enabled.some(b => b.type === t && b.content.trim().split(/\s+/).length >= 8);
+  const hasVariables = enabled.some(b => /\{\{[^}]+\}\}/.test(b.content));
+  const hasExamples  = has("examples");
+
+  return [
+    {
+      label:   "Nhiệm Vụ",
+      ok:      has("task"),
+      level:   "critical",
+      message: has("task")
+        ? "Đã thiết lập — AI biết cần làm gì"
+        : "Bắt buộc — thiếu block này AI không biết làm gì",
+    },
+    {
+      label:   "Vai Trò",
+      ok:      has("role"),
+      level:   "important",
+      message: has("role")
+        ? "Đã thiết lập — AI biết đóng vai chuyên gia nào"
+        : "Nên có — giúp AI trả lời đúng chuyên môn cần thiết",
+    },
+    {
+      label:   "Định Dạng Đầu Ra",
+      ok:      has("output"),
+      level:   "important",
+      message: has("output")
+        ? "Đã thiết lập — AI sẽ trình bày theo yêu cầu"
+        : "Nên có — không có, AI tự chọn cách trình bày tuỳ tiện",
+    },
+    {
+      label:   "Giới Hạn",
+      ok:      has("constraints"),
+      level:   "tip",
+      message: has("constraints")
+        ? "Đã có ràng buộc cho AI"
+        : "Tuỳ chọn — thêm để kiểm soát những điều AI không được làm",
+    },
+    {
+      label:   "Nội dung đủ chi tiết",
+      ok:      hasContent("task") && (has("role") ? hasContent("role") : true),
+      level:   "important",
+      message: hasContent("task")
+        ? "Nội dung các block đủ chi tiết"
+        : "Nhiệm Vụ quá ngắn — cần ít nhất 8 từ để AI hiểu đúng yêu cầu",
+    },
+    {
+      label:   "Biến số {{}}",
+      ok:      hasVariables,
+      level:   "tip",
+      message: hasVariables
+        ? "Đang dùng biến số — prompt có thể tái sử dụng"
+        : "Chưa dùng — thêm {{biến}} để prompt linh hoạt, dùng lại nhiều lần",
+    },
+    {
+      label:   "Ví dụ minh hoạ",
+      ok:      hasExamples,
+      level:   "tip",
+      message: hasExamples
+        ? "Đã có ví dụ — AI hiểu rõ format mong muốn"
+        : "Tuỳ chọn — thêm Ví Dụ giúp AI hiểu rõ hơn format kết quả bạn muốn",
+    },
+  ];
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export const AIAssistant = () => {
-  const blocks = usePromptStore(state => state.blocks);
+  const blocks = usePromptStore(s => s.blocks);
 
   const [isImproving,    setIsImproving]    = useState(false);
   const [isAnalyzing,    setIsAnalyzing]    = useState(false);
@@ -16,35 +107,18 @@ export const AIAssistant = () => {
   const [copiedImproved, setCopiedImproved] = useState(false);
 
   const enabledBlocks = blocks.filter(b => b.enabled);
-  const hasRole = enabledBlocks.some(b => b.type === "role");
-  const hasTask = enabledBlocks.some(b => b.type === "task");
-  const hasOutput = enabledBlocks.some(b => b.type === "output");
+  const score     = calcScore(blocks);
+  const checklist = buildChecklist(blocks);
 
-  // Static score (instant, no API)
-  let score = 0;
-  if (enabledBlocks.length >= 1) score += 2;
-  if (enabledBlocks.length >= 3) score += 2;
-  if (enabledBlocks.length >= 5) score += 2;
-  if (hasRole)   score += 1;
-  if (hasTask)   score += 1;
-  if (hasOutput) score += 1;
-  if (enabledBlocks.some(b => b.type === "examples")) score += 1;
-  if (enabledBlocks.length === 0) score = 0;
+  const scoreColor = score >= 8 ? "text-emerald-500" : score >= 5 ? "text-amber-500" : "text-red-500";
+  const barColor   = score >= 8 ? "bg-emerald-500"   : score >= 5 ? "bg-amber-500"   : "bg-red-500";
 
-  const scoreColor =
-    score >= 8 ? "text-emerald-500" :
-    score >= 5 ? "text-amber-500"   : "text-red-500";
-
-  const barColor =
-    score >= 8 ? "bg-emerald-500" :
-    score >= 5 ? "bg-amber-500"   : "bg-red-500";
-
-  // ── SSE streaming for improve ─────────────────────────────────────────────
+  // ── SSE streaming improve ──────────────────────────────────────────────────
   const handleImprove = async () => {
     if (enabledBlocks.length === 0) return;
     setIsImproving(true);
     setAiSuggestions([]);
-    setImprovedPrompt(""); // open modal immediately
+    setImprovedPrompt("");
 
     try {
       const res = await fetch(`${API_BASE}/api/prompt-builder`, {
@@ -54,7 +128,6 @@ export const AIAssistant = () => {
       });
 
       if (!res.ok || !res.body) {
-        // Fallback: try non-streaming
         const data = await res.json().catch(() => ({}));
         setImprovedPrompt((data as { result?: string }).result ?? null);
         return;
@@ -62,23 +135,21 @@ export const AIAssistant = () => {
 
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
-      let buffer    = "";
+      let buffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
-
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
           try {
             const payload = JSON.parse(line.slice(6));
             if (payload.text) setImprovedPrompt(prev => (prev ?? "") + payload.text);
             if (payload.done || payload.error) return;
-          } catch { /* skip malformed */ }
+          } catch { /* skip */ }
         }
       }
     } catch { /* silent */ }
@@ -140,50 +211,60 @@ export const AIAssistant = () => {
             </p>
           </div>
 
-          {/* Static analysis */}
+          {/* Detailed checklist */}
           <div>
             <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-              <AlertCircle className="w-3.5 h-3.5" /> Phân tích tức thời
+              <AlertCircle className="w-3.5 h-3.5" /> Phân tích chi tiết
             </h3>
-            <div className="space-y-2">
-              {blocks.length === 0 && (
-                <p className="text-xs text-zinc-400 italic p-3 bg-zinc-50 rounded-xl border border-zinc-100">
-                  Kéo block vào canvas để mình phân tích nhé.
-                </p>
-              )}
-              {blocks.length > 0 && !hasRole && (
-                <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-2">
-                  <span className="mt-0.5 text-sm">⚠️</span>
-                  <p className="text-xs text-amber-800">
-                    <b>Nên có:</b> Block <b>Vai Trò</b> giúp AI hiểu chuyên môn cần thiết.
-                  </p>
-                </div>
-              )}
-              {blocks.length > 0 && !hasTask && (
-                <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2">
-                  <span className="mt-0.5 text-sm">🚨</span>
-                  <p className="text-xs text-red-800">
-                    <b>Thiếu quan trọng:</b> Block <b>Nhiệm Vụ</b> là bắt buộc — AI không biết làm gì nếu thiếu.
-                  </p>
-                </div>
-              )}
-              {blocks.length > 0 && !hasOutput && (
-                <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-2">
-                  <span className="mt-0.5 text-sm">💡</span>
-                  <p className="text-xs text-blue-800">
-                    Thêm <b>Đầu Ra</b> để chỉ định cách AI trình bày kết quả.
-                  </p>
-                </div>
-              )}
-              {hasRole && hasTask && score >= 7 && (
-                <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                  <p className="text-xs text-emerald-800">
-                    Cấu trúc cơ bản rất tốt! Thêm nội dung chi tiết để tăng điểm.
-                  </p>
-                </div>
-              )}
-            </div>
+
+            {blocks.length === 0 ? (
+              <p className="text-xs text-zinc-400 italic p-3 bg-zinc-50 rounded-xl border border-zinc-100">
+                Kéo block vào canvas để mình phân tích nhé.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {checklist.map(item => (
+                  <div
+                    key={item.label}
+                    className={`p-3 rounded-xl border flex items-start gap-2.5 ${
+                      item.ok
+                        ? "bg-emerald-50 border-emerald-100"
+                        : item.level === "critical"
+                        ? "bg-red-50 border-red-100"
+                        : item.level === "important"
+                        ? "bg-amber-50 border-amber-100"
+                        : "bg-zinc-50 border-zinc-100"
+                    }`}
+                  >
+                    {item.ok ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                    ) : item.level === "critical" ? (
+                      <XCircle className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" />
+                    )}
+                    <div>
+                      <p className={`text-xs font-semibold ${
+                        item.ok ? "text-emerald-800" :
+                        item.level === "critical" ? "text-red-800" :
+                        item.level === "important" ? "text-amber-800" :
+                        "text-zinc-600"
+                      }`}>
+                        {item.label}
+                      </p>
+                      <p className={`text-xs mt-0.5 leading-relaxed ${
+                        item.ok ? "text-emerald-700" :
+                        item.level === "critical" ? "text-red-700" :
+                        item.level === "important" ? "text-amber-700" :
+                        "text-zinc-500"
+                      }`}>
+                        {item.message}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* AI suggestions from analyze */}
@@ -249,7 +330,7 @@ export const AIAssistant = () => {
         </div>
       </div>
 
-      {/* Improved prompt modal — opens as soon as streaming starts */}
+      {/* Improved prompt modal */}
       {improvedPrompt !== null && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[80vh]">
@@ -258,9 +339,7 @@ export const AIAssistant = () => {
                 <h3 className="font-semibold text-zinc-900 flex items-center gap-2">
                   ✨ Prompt đã được nâng cấp
                   {isImproving && (
-                    <span className="text-xs font-normal text-violet-500 animate-pulse">
-                      Đang viết...
-                    </span>
+                    <span className="text-xs font-normal text-violet-500 animate-pulse">Đang viết...</span>
                   )}
                 </h3>
                 <p className="text-xs text-zinc-400 mt-0.5">Bản do AI viết lại — chuyên nghiệp hơn</p>
@@ -275,10 +354,7 @@ export const AIAssistant = () => {
 
             <div className="flex-1 overflow-y-auto p-5">
               <pre className="text-sm text-zinc-700 whitespace-pre-wrap font-mono leading-relaxed bg-zinc-50 rounded-xl p-4 border border-zinc-100 min-h-[80px]">
-                {improvedPrompt || (
-                  <span className="text-zinc-400 italic">Đang khởi tạo...</span>
-                )}
-                {/* Blinking cursor while streaming */}
+                {improvedPrompt || <span className="text-zinc-400 italic">Đang khởi tạo...</span>}
                 {isImproving && (
                   <span className="inline-block w-0.5 h-4 bg-violet-500 ml-0.5 animate-pulse align-middle" />
                 )}
